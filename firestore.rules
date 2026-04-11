@@ -1,0 +1,131 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Function to verify user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // 1. users
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+    
+    // 2. connection_requests
+    match /connection_requests/{requestId} {
+      allow read: if isSignedIn();
+      // Sender can create
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.senderId;
+      // Sender or Receiver can update/delete
+      // Sender might update to 'cancelled', receiver to 'accepted' or 'declined'
+      allow update, delete: if isSignedIn() && (
+        request.auth.uid == resource.data.senderId || 
+        request.auth.uid == resource.data.receiverId
+      );
+    }
+    
+    // 3. connections
+    match /connections/{connectionId} {
+      // Allowed if you're in the users array
+      allow read: if isSignedIn() && request.auth.uid in resource.data.users;
+      // Creation allowed if creating user is in the array
+      allow create: if isSignedIn() && request.auth.uid in request.resource.data.users;
+      allow update, delete: if isSignedIn() && request.auth.uid in resource.data.users;
+    }
+    
+    // 4. chats
+    match /chats/{chatId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow create: if isSignedIn() && request.auth.uid in request.resource.data.participants;
+      allow update: if isSignedIn() && (
+        request.auth.uid in resource.data.participants || 
+        request.auth.uid in request.resource.data.participants
+      );
+      
+      // 5. messages
+      match /messages/{messageId} {
+        // Read if user is in parent chat participants
+        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        // Create if user is in parent chat participants and matches senderId
+        allow create: if isSignedIn() 
+                      && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+                      && request.auth.uid == request.resource.data.senderId;
+        // Update to allow seen marking
+        allow update: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+    }
+    
+    // 6. posts
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      // Author check for creation
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.authorId;
+      // Author check for updates or delete
+      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.authorId;
+      
+      // 7. post_likes
+      match /likes/{userId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && request.auth.uid == userId;
+      }
+      
+      // 8. comments
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.auth.uid == request.resource.data.authorId;
+        allow update, delete: if isSignedIn() && request.auth.uid == resource.data.authorId;
+      }
+    }
+    
+    // 9. notifications
+    match /notifications/{notificationId} {
+      // User can read their own notifications
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
+      // Anyone can send a notification
+      allow create: if isSignedIn();
+      // User can update their own (for marking isRead)
+      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+    
+    // 10. digital_cards
+    match /digital_cards/{username} {
+      // Publicly readable for QR scanning
+      allow read: if true;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.uid;
+      // Allow update if the existing card belongs to the updating user
+      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.uid;
+    }
+    
+    // 11. groups
+    match /groups/{groupId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.members;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.createdBy;
+      allow update: if isSignedIn() && (
+        request.auth.uid in resource.data.members || 
+        request.auth.uid == resource.data.createdBy
+      );
+      
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
+        allow create: if isSignedIn() 
+                      && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members
+                      && request.auth.uid == request.resource.data.senderId;
+      }
+    }
+    
+    // 12. locations
+    match /locations/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+    
+    // 13. onboarding
+    match /onboarding/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+  }
+}
