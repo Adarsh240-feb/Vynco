@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Input } from '@/components/ui/Input';
 import { ConnectionSkeleton } from '@/components/ui/Skeleton';
@@ -342,11 +343,12 @@ export default function ConnectionsPage() {
                         </p>
                       </div>
                     </div>
-                    <button
+                    <Link
+                      href={`/messages?userId=${person.id}`}
                       className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 border border-sapphire-600 text-sapphire-400 hover:text-white transition-all"
                     >
                       Message
-                    </button>
+                    </Link>
                   </div>
                 ))}
               </div>

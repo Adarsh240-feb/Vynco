@@ -19,6 +19,7 @@ export default function Navbar() {
   const authLinks = [
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'Connections', href: '/connections' },
+    { label: 'Messages', href: '/messages' },
     { label: 'Settings', href: '/settings' },
   ];
 

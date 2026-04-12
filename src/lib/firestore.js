@@ -196,6 +196,100 @@ export async function fetchPopulatedConnections(userId) {
   return profiles;
 }
 
+// ─── Chats & Messages ─────────────────────────────────────
+
+export function subscribeToChats(userId, callback) {
+  const q = query(
+    collection(db, 'chats'),
+    where('participants', 'array-contains', userId),
+    orderBy('updatedAt', 'desc')
+  );
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
+
+export async function getOrCreateChat(user1Id, user2Id, user1Info, user2Info) {
+  // Query for existing chat where both users are participants
+  const q = query(
+    collection(db, 'chats'),
+    where('participants', 'array-contains', user1Id)
+  );
+  const snapshot = await getDocs(q);
+  
+  let existingChat = null;
+  snapshot.docs.forEach((docSnap) => {
+    const data = docSnap.data();
+    if (data.participants && data.participants.includes(user2Id)) {
+      existingChat = { id: docSnap.id, ...data };
+    }
+  });
+
+  if (existingChat) return existingChat;
+
+  // Create new chat
+  const chatRef = await addDoc(collection(db, 'chats'), {
+    participants: [user1Id, user2Id],
+    participantInfo: {
+      [user1Id]: user1Info,
+      [user2Id]: user2Info,
+    },
+    lastMessage: null,
+    lastMessageTime: null,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    unreadCount: {
+      [user1Id]: 0,
+      [user2Id]: 0
+    }
+  });
+
+  return { id: chatRef.id, participants: [user1Id, user2Id] };
+}
+
+export function subscribeToMessages(chatId, callback) {
+  const q = query(
+    collection(db, 'chats', chatId, 'messages'),
+    orderBy('createdAt', 'asc')
+  );
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
+
+export async function sendMessage(chatId, senderId, targetUserId, text) {
+  const messageRef = await addDoc(collection(db, 'chats', chatId, 'messages'), {
+    senderId,
+    text,
+    createdAt: serverTimestamp(),
+    isRead: false
+  });
+
+  // Update parent chat document
+  const chatRef = doc(db, 'chats', chatId);
+  const chatSnap = await getDoc(chatRef);
+  if (chatSnap.exists()) {
+    const data = chatSnap.data();
+    const currentUnread = data.unreadCount?.[targetUserId] || 0;
+    
+    await updateDoc(chatRef, {
+      lastMessage: text,
+      lastMessageTime: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      [`unreadCount.${targetUserId}`]: currentUnread + 1,
+    });
+  }
+
+  return messageRef.id;
+}
+
+export async function markChatAsRead(chatId, userId) {
+  const chatRef = doc(db, 'chats', chatId);
+  await updateDoc(chatRef, {
+    [`unreadCount.${userId}`]: 0
+  });
+}
+
 // ─── Helpers ────────────────────────────────────────────
 
 export function formatTimestamp(timestamp) {
