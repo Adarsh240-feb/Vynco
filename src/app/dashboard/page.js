@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { FAB } from '@/components/ui/FAB';
 import { FeedSkeleton, ProfileSkeleton } from '@/components/ui/Skeleton';
-import { subscribeToPosts, createPost, toggleLike, formatTimestamp } from '@/lib/firestore';
+import { subscribeToPosts, createPost, toggleLike, formatTimestamp, fetchUserByUsername, sendConnectionRequest, fetchSentPendingRequests, fetchConnections } from '@/lib/firestore';
 import { useSearchParams } from 'next/navigation';
-import { QrCode, Mail, Phone, Building2, UserCircle, ThumbsUp, MessageCircle, Share2 } from 'lucide-react';
+import { QrCode, Mail, Phone, Building2, UserCircle, ThumbsUp, MessageCircle, Share2, ScanLine, X, Link2, Briefcase, UserPlus, Check } from 'lucide-react';
 import QRCode from 'react-qr-code';
 
 export default function DashboardPage() {
@@ -18,6 +19,16 @@ export default function DashboardPage() {
   const [showPostModal, setShowPostModal] = useState(false);
   const [newPostContent, setNewPostContent] = useState('');
   const [posting, setPosting] = useState(false);
+  const [networkAuthorIds, setNetworkAuthorIds] = useState(new Set());
+  const [networkFilterReady, setNetworkFilterReady] = useState(false);
+  const [showScannerModal, setShowScannerModal] = useState(false);
+  const [scanRestartToken, setScanRestartToken] = useState(0);
+  const [scanStatus, setScanStatus] = useState('Initializing scanner...');
+  const [scanError, setScanError] = useState('');
+  const [scannedProfile, setScannedProfile] = useState(null);
+  const [showScannedCardModal, setShowScannedCardModal] = useState(false);
+  const [sendingScannedRequest, setSendingScannedRequest] = useState(false);
+  const [sentRequestIds, setSentRequestIds] = useState(new Set());
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -26,14 +37,69 @@ export default function DashboardPage() {
     }
   }, [searchParams]);
 
-  // Real-time posts subscription
   useEffect(() => {
+    if (!user) return;
+
+    let active = true;
+    setNetworkFilterReady(false);
+
+    async function loadNetworkAuthors() {
+      try {
+        const connections = await fetchConnections(user.uid);
+        const ids = new Set([user.uid]);
+
+        connections.forEach((connection) => {
+          connection.users?.forEach((uid) => ids.add(uid));
+        });
+
+        if (active) {
+          setNetworkAuthorIds(ids);
+          setNetworkFilterReady(true);
+        }
+      } catch (err) {
+        console.error('Failed to load network for feed filter:', err);
+        if (active) {
+          setNetworkAuthorIds(new Set([user.uid]));
+          setNetworkFilterReady(true);
+        }
+      }
+    }
+
+    loadNetworkAuthors();
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  // Real-time posts subscription (network-only)
+  useEffect(() => {
+    if (!user || !networkFilterReady) return;
+
+    setFeedLoading(true);
     const unsubscribe = subscribeToPosts(20, (fetchedPosts) => {
-      setPosts(fetchedPosts);
+      const visiblePosts = fetchedPosts.filter((post) => networkAuthorIds.has(post.authorId));
+      setPosts(visiblePosts);
       setFeedLoading(false);
     });
+
     return () => unsubscribe();
-  }, []);
+  }, [user, networkFilterReady, networkAuthorIds]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    async function loadSentRequests() {
+      try {
+        const pending = await fetchSentPendingRequests(user.uid);
+        setSentRequestIds(new Set(pending.map((req) => req.receiverId)));
+      } catch (err) {
+        console.error('Failed to load sent requests:', err);
+      }
+    }
+
+    loadSentRequests();
+  }, [user]);
 
   const handlePostCreate = () => {
     setShowPostModal(true);
@@ -67,6 +133,174 @@ export default function DashboardPage() {
     }
   };
 
+  const closeScannerModal = () => {
+    setShowScannerModal(false);
+    setScanError('');
+    setScanStatus('Initializing scanner...');
+  };
+
+  const closePostModal = () => {
+    setShowPostModal(false);
+    setNewPostContent('');
+  };
+
+  const closeScannedCardModal = () => {
+    setScannedProfile(null);
+    setShowScannedCardModal(false);
+  };
+
+  useEffect(() => {
+    const hasOpenModal = showScannerModal || showScannedCardModal || showPostModal;
+    if (!hasOpenModal) return;
+
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+
+      if (showScannedCardModal) {
+        closeScannedCardModal();
+        return;
+      }
+
+      if (showScannerModal) {
+        closeScannerModal();
+        return;
+      }
+
+      if (showPostModal) {
+        closePostModal();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showScannerModal, showScannedCardModal, showPostModal]);
+
+  useEffect(() => {
+    if (!showScannerModal) return;
+
+    let stream;
+    let intervalId;
+    let canceled = false;
+
+    const stopScanner = () => {
+      if (intervalId) window.clearInterval(intervalId);
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+
+    const extractUsername = (rawValue) => {
+      if (!rawValue) return '';
+
+      const trimmed = rawValue.trim();
+      if (!trimmed) return '';
+
+      try {
+        const asUrl = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+        const pathUser = asUrl.pathname.replace(/^\//, '').split('/')[0];
+        if (pathUser) return pathUser.toLowerCase();
+      } catch {
+        // Fallback to non-URL payload.
+      }
+
+      return trimmed.replace(/^@/, '').split(/[/?#]/)[0].toLowerCase();
+    };
+
+    const startScanner = async () => {
+      setScanError('');
+      setScanStatus('Requesting camera access...');
+
+      if (typeof window === 'undefined' || typeof window.BarcodeDetector === 'undefined') {
+        setScanError('QR scanner is not supported in this browser. Use Chrome/Edge on HTTPS or localhost.');
+        return;
+      }
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        if (canceled) {
+          stopScanner();
+          return;
+        }
+
+        const video = document.getElementById('dashboard-qr-video');
+        if (!video) {
+          setScanError('Scanner video element is unavailable.');
+          stopScanner();
+          return;
+        }
+
+        video.srcObject = stream;
+        await video.play();
+
+        const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+        setScanStatus('Point the camera at a Vynco digital card QR code...');
+
+        intervalId = window.setInterval(async () => {
+          if (canceled || !video || video.readyState < 2) return;
+
+          try {
+            const barcodes = await detector.detect(video);
+            if (!barcodes.length) return;
+
+            const username = extractUsername(barcodes[0]?.rawValue || '');
+            if (!username) return;
+
+            setScanStatus('Looking up digital card...');
+            const foundProfile = await fetchUserByUsername(username);
+
+            canceled = true;
+            stopScanner();
+
+            if (!foundProfile) {
+              setScanError('User not found. Try to search with username.');
+              setScanStatus('Scan complete');
+              return;
+            }
+
+            setScannedProfile(foundProfile);
+            setShowScannerModal(false);
+            setShowScannedCardModal(true);
+          } catch {
+            // Keep scanning on transient detection errors.
+          }
+        }, 500);
+      } catch (err) {
+        console.error('Scanner startup failed:', err);
+        setScanError('Unable to access camera. Please allow camera permissions and try again.');
+      }
+    };
+
+    startScanner();
+
+    return () => {
+      canceled = true;
+      stopScanner();
+    };
+  }, [showScannerModal, scanRestartToken]);
+
+  const handleConnectScannedProfile = async () => {
+    if (!user || !profile || !scannedProfile || scannedProfile.id === user.uid || sendingScannedRequest) return;
+
+    setSendingScannedRequest(true);
+    try {
+      await sendConnectionRequest({
+        senderId: user.uid,
+        senderName: profile.fullName || profile.name || 'User',
+        senderProfileImageUrl: profile.photoURL || null,
+        receiverId: scannedProfile.id,
+        receiverName: scannedProfile.name || scannedProfile.fullName || 'User',
+        receiverProfileImageUrl: scannedProfile.photoURL || null,
+      });
+      setSentRequestIds((prev) => new Set([...prev, scannedProfile.id]));
+    } catch (err) {
+      console.error('Failed to send scanned connection request:', err);
+    } finally {
+      setSendingScannedRequest(false);
+    }
+  };
+
+  const scannedRequestAlreadySent = !!scannedProfile && sentRequestIds.has(scannedProfile.id);
+
   return (
     <div className="section-container py-10">
       {/* Page Header */}
@@ -78,6 +312,13 @@ export default function DashboardPage() {
           <p className="text-sapphire-400 mt-1">Manage your feed and digital business card</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowScannerModal(true)}
+            className="px-4 py-2.5 rounded-xl text-sm font-semibold border border-cyan-neon/30 text-cyan-neon hover:bg-cyan-neon/10 transition-all flex items-center gap-2"
+          >
+            <ScanLine className="w-4 h-4" /> Scan Card
+          </button>
           <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-cyan-neon/30 bg-sapphire-700 flex items-center justify-center text-white font-bold text-lg shadow-[0_0_15px_rgba(0,229,255,0.1)]">
             {profile?.fullName ? profile.fullName.charAt(0).toUpperCase() : profile?.name ? profile.name.charAt(0).toUpperCase() : <UserCircle className="w-7 h-7" />}
           </div>
@@ -258,10 +499,197 @@ export default function DashboardPage() {
 
       {activeTab === 'feed' && <FAB onClick={handlePostCreate} />}
 
+      {showScannerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4" onClick={closeScannerModal}>
+          <div className="glass-panel rounded-2xl p-8 w-full max-w-xl glow-border relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={closeScannerModal}
+              className="absolute top-4 right-4 w-8 h-8 rounded-lg border border-white/[0.08] text-sapphire-400 hover:text-white hover:border-white/[0.16] transition-colors"
+            >
+              <X className="w-4 h-4 mx-auto" />
+            </button>
+            <h3 className="text-xl font-bold text-white mb-2">Scan Digital Card</h3>
+            <p className="text-sm text-sapphire-400 mb-4">Scan a Vynco QR to open that profile directly.</p>
+
+            <div className="rounded-2xl border border-white/[0.08] bg-sapphire-900/50 p-3 mb-4">
+              <video
+                id="dashboard-qr-video"
+                className="w-full aspect-video rounded-xl bg-black object-cover"
+                muted
+                playsInline
+              />
+            </div>
+
+            {scanError ? (
+              <div className="text-sm rounded-xl border border-red-400/30 bg-red-400/10 text-red-300 px-3 py-2 mb-4">
+                {scanError}
+              </div>
+            ) : (
+              <div className="text-sm rounded-xl border border-cyan-neon/20 bg-cyan-neon/10 text-cyan-neon px-3 py-2 mb-4">
+                {scanStatus}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeScannerModal}
+                className="px-5 py-2.5 text-sm font-medium rounded-xl text-sapphire-400 hover:text-white transition-colors"
+              >
+                Close
+              </button>
+              {!!scanError && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScanError('');
+                    setScanStatus('Initializing scanner...');
+                    setScanRestartToken((prev) => prev + 1);
+                  }}
+                  className="px-5 py-2.5 text-sm font-semibold rounded-xl border border-sapphire-600 text-sapphire-300 hover:text-white transition-colors"
+                >
+                  Scan Another
+                </button>
+              )}
+              {!!scanError && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeScannerModal();
+                    window.location.href = '/connections';
+                  }}
+                  className="px-5 py-2.5 text-sm font-semibold rounded-xl border border-cyan-neon/30 text-cyan-neon hover:bg-cyan-neon/10 transition-colors"
+                >
+                  Search by Username
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {showScannedCardModal && scannedProfile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={closeScannedCardModal}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+              className="relative w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-cyan-neon/20 via-cyan-dark/10 to-transparent blur-2xl animate-pulse pointer-events-none" />
+              <div className="relative glass-panel rounded-[2rem] p-8 glow-border overflow-hidden">
+                <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-cyan-neon/10 blur-3xl pointer-events-none" />
+
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <p className="text-cyan-neon text-xs font-semibold uppercase tracking-[0.2em]">Scan Success</p>
+                    <h3 className="text-xl font-bold text-white mt-1">Digital Card</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeScannedCardModal}
+                    className="relative z-20 w-8 h-8 rounded-lg border border-white/[0.08] text-sapphire-400 hover:text-white hover:border-white/[0.16] transition-colors"
+                  >
+                    <X className="w-4 h-4 mx-auto" />
+                  </button>
+                </div>
+
+                <div className="text-center mb-6">
+                  <motion.div
+                    initial={{ scale: 0.82, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.08, duration: 0.3 }}
+                    className="w-24 h-24 rounded-full mx-auto mb-4 bg-gradient-to-br from-sapphire-600 to-sapphire-800 border-2 border-cyan-neon/30 shadow-[0_0_28px_rgba(0,229,255,0.18)] overflow-hidden flex items-center justify-center text-white text-2xl font-bold"
+                  >
+                    {scannedProfile.photoURL ? (
+                      <img src={scannedProfile.photoURL} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      (scannedProfile.fullName || scannedProfile.name || 'U').charAt(0).toUpperCase()
+                    )}
+                  </motion.div>
+
+                  <h4 className="text-white text-xl font-bold truncate">{scannedProfile.fullName || scannedProfile.name || 'User'}</h4>
+                  {scannedProfile.username && (
+                    <p className="text-cyan-dark text-sm font-medium mt-1">@{scannedProfile.username}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2 mb-6">
+                  {(scannedProfile.jobTitle || scannedProfile.organization || scannedProfile.company) && (
+                    <div className="flex items-center gap-3 rounded-xl bg-sapphire-900/40 border border-white/[0.04] px-3 py-2">
+                      <Briefcase className="w-4 h-4 text-cyan-neon flex-shrink-0" />
+                      <span className="text-xs text-sapphire-300 truncate">{scannedProfile.jobTitle || scannedProfile.organization || scannedProfile.company}</span>
+                    </div>
+                  )}
+                  {scannedProfile.email && (
+                    <div className="flex items-center gap-3 rounded-xl bg-sapphire-900/40 border border-white/[0.04] px-3 py-2">
+                      <Mail className="w-4 h-4 text-cyan-neon flex-shrink-0" />
+                      <span className="text-xs text-sapphire-300 truncate">{scannedProfile.email}</span>
+                    </div>
+                  )}
+                  {scannedProfile.linkedinProfile && (
+                    <div className="flex items-center gap-3 rounded-xl bg-sapphire-900/40 border border-white/[0.04] px-3 py-2">
+                      <Link2 className="w-4 h-4 text-cyan-neon flex-shrink-0" />
+                      <span className="text-xs text-sapphire-300 truncate">{scannedProfile.linkedinProfile}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeScannedCardModal();
+                      setShowScannerModal(true);
+                      setScanError('');
+                      setScanStatus('Initializing scanner...');
+                    }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-sapphire-600 text-sapphire-400 hover:text-white transition-colors"
+                  >
+                    Scan Another
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConnectScannedProfile}
+                    disabled={sendingScannedRequest || scannedRequestAlreadySent || scannedProfile.id === user?.uid}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-cyan-neon/30 text-cyan-neon hover:bg-cyan-neon/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {scannedProfile.id === user?.uid ? (
+                      'This is your card'
+                    ) : scannedRequestAlreadySent ? (
+                      <><Check className="w-4 h-4 inline-block mr-1" /> Request Sent</>
+                    ) : (
+                      <><UserPlus className="w-4 h-4 inline-block mr-1" /> {sendingScannedRequest ? 'Connecting...' : 'Connect'}</>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Create Post Modal */}
       {showPostModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="glass-panel rounded-2xl p-8 w-full max-w-lg glow-border">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={closePostModal}>
+          <div className="glass-panel rounded-2xl p-8 w-full max-w-lg glow-border relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={closePostModal}
+              className="absolute top-4 right-4 w-8 h-8 rounded-lg border border-white/[0.08] text-sapphire-400 hover:text-white hover:border-white/[0.16] transition-colors"
+            >
+              <X className="w-4 h-4 mx-auto" />
+            </button>
             <h3 className="text-xl font-bold text-white mb-4">Create a Post</h3>
             <textarea
               value={newPostContent}
@@ -272,7 +700,7 @@ export default function DashboardPage() {
             />
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => { setShowPostModal(false); setNewPostContent(''); }}
+                onClick={closePostModal}
                 className="px-5 py-2.5 text-sm font-medium rounded-xl text-sapphire-400 hover:text-white transition-colors"
               >
                 Cancel

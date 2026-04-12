@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Input } from '@/components/ui/Input';
 import { ConnectionSkeleton } from '@/components/ui/Skeleton';
-import { fetchUsers, searchUsers, fetchGroups, sendConnectionRequest, fetchConnections, fetchPopulatedConnections, createGroup, fetchPendingRequests, respondToRequest } from '@/lib/firestore';
-import { Search, UserPlus, Users as UsersIcon, Plus, MapPin, Check, Bell, CheckCircle, X, Users } from 'lucide-react';
+import { fetchUsers, searchUsers, fetchGroups, sendConnectionRequest, fetchConnections, fetchPopulatedConnections, createGroup, fetchPendingRequests, fetchSentPendingRequests, respondToRequest } from '@/lib/firestore';
+import { Search, UserPlus, Users as UsersIcon, Plus, Check, Bell, CheckCircle, X, Users, Mail, Phone, Link2 } from 'lucide-react';
 
 export default function ConnectionsPage() {
   const { user, profile } = useAuth();
@@ -24,7 +24,9 @@ export default function ConnectionsPage() {
   const [respondingTo, setRespondingTo] = useState(null);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  const [selectedGroupMemberIds, setSelectedGroupMemberIds] = useState([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const incomingRequestIds = new Set(requests.map((req) => req.senderId));
 
   // Load pending requests
   useEffect(() => {
@@ -87,10 +89,13 @@ export default function ConnectionsPage() {
     async function loadData() {
       setIsLoading(true);
       try {
-        const [usersData, networkData] = await Promise.all([
+        const [usersData, networkData, sentPending] = await Promise.all([
           fetchUsers(30),
           fetchPopulatedConnections(user.uid),
+          fetchSentPendingRequests(user.uid),
         ]);
+
+        setSentRequests(new Set(sentPending.map((req) => req.receiverId)));
 
         const connectedIds = new Set(networkData.map(u => u.id));
         setMyConnections(connectedIds);
@@ -118,7 +123,7 @@ export default function ConnectionsPage() {
     async function loadGroups() {
       setIsLoading(true);
       try {
-        const data = await fetchGroups(user.uid);
+        const data = await fetchGroups(user.uid, profile?.id || null);
         setGroups(data);
       } catch (err) {
         console.error('Failed to load groups:', err);
@@ -128,7 +133,7 @@ export default function ConnectionsPage() {
     }
 
     loadGroups();
-  }, [user, activeTab]);
+  }, [user, activeTab, profile?.id]);
 
   // Search handler
   useEffect(() => {
@@ -179,20 +184,58 @@ export default function ConnectionsPage() {
     if (!newGroupName.trim() || !user) return;
     setCreatingGroup(true);
     try {
-      await createGroup({
+      const groupRef = await createGroup({
         name: newGroupName.trim(),
         createdBy: user.uid,
+        members: selectedGroupMemberIds,
       });
+      const createdGroup = {
+        id: groupRef.id,
+        name: newGroupName.trim(),
+        members: [user.uid, ...selectedGroupMemberIds],
+      };
       setNewGroupName('');
+      setSelectedGroupMemberIds([]);
       setShowGroupModal(false);
       // Reload groups
       const data = await fetchGroups(user.uid);
       setGroups(data);
+      window.location.href = `/messages?groupId=${createdGroup.id}`;
     } catch (err) {
       console.error('Failed to create group:', err);
     } finally {
       setCreatingGroup(false);
     }
+  };
+
+  const getContactRows = (person) => {
+    const rows = [];
+    const phoneMode = person.phoneVisibilityMode || (person.phonePublic ? 'connection-only' : 'private');
+    const canViewPhone =
+      phoneMode === 'connection-only' ||
+      (phoneMode === 'custom' && Array.isArray(person.phoneVisibilityAllowedIds) && user && person.phoneVisibilityAllowedIds.includes(user.uid));
+
+    if (person.email) {
+      rows.push({ key: 'email', icon: Mail, text: person.email });
+    }
+
+    if (person.linkedinProfile) {
+      rows.push({ key: 'linkedin', icon: Link2, text: person.linkedinProfile });
+    }
+
+    if (canViewPhone && person.phone) {
+      rows.push({ key: 'phone', icon: Phone, text: person.phone });
+    }
+
+    return rows;
+  };
+
+  const toggleGroupMember = (memberId) => {
+    setSelectedGroupMemberIds((current) =>
+      current.includes(memberId)
+        ? current.filter((id) => id !== memberId)
+        : [...current, memberId]
+    );
   };
 
   return (
@@ -209,7 +252,7 @@ export default function ConnectionsPage() {
       <div className="mb-8 max-w-xl">
         <Input
           icon={Search}
-          placeholder="Search people by name..."
+          placeholder="Search people by username..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -267,6 +310,7 @@ export default function ConnectionsPage() {
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {people.map(person => {
                   const alreadySent = sentRequests.has(person.id);
+                  const hasIncomingRequest = incomingRequestIds.has(person.id);
                   return (
                     <div key={person.id} className="glass-panel rounded-2xl p-6 hover:border-white/[0.1] transition-all group">
                       <div className="flex items-start gap-4 mb-4">
@@ -282,21 +326,37 @@ export default function ConnectionsPage() {
                           <p className="text-sapphire-500 text-sm truncate">
                             {person.organization || person.company || person.bio || 'Vynco Member'}
                           </p>
+                          {person.jobTitle && (
+                            <p className="text-cyan-dark text-xs mt-1 truncate">{person.jobTitle}</p>
+                          )}
                         </div>
                       </div>
                       {person.username && (
                         <p className="text-cyan-dark text-xs mb-4">@{person.username}</p>
                       )}
                       <button
-                        onClick={() => !alreadySent && handleConnect(person)}
+                        onClick={() => {
+                          if (hasIncomingRequest) {
+                            setActiveTab('requests');
+                            return;
+                          }
+                          if (!alreadySent) {
+                            handleConnect(person);
+                          }
+                        }}
                         disabled={alreadySent}
                         className={`w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                          hasIncomingRequest
+                            ? 'border border-amber-400/40 text-amber-300 hover:bg-amber-300/10'
+                            :
                           alreadySent
                             ? 'border border-sapphire-600 text-sapphire-500 cursor-default'
                             : 'border border-cyan-neon/20 text-cyan-neon hover:bg-cyan-neon/10'
                         }`}
                       >
-                        {alreadySent ? (
+                        {hasIncomingRequest ? (
+                          <><Bell className="w-4 h-4" /> Respond to Request</>
+                        ) : alreadySent ? (
                           <><Check className="w-4 h-4" /> Request Sent</>
                         ) : (
                           <><UserPlus className="w-4 h-4" /> Connect</>
@@ -341,7 +401,18 @@ export default function ConnectionsPage() {
                         <p className="text-sapphire-500 text-sm truncate">
                           {person.organization || person.company || person.bio || 'Vynco Member'}
                         </p>
+                        {person.jobTitle && (
+                          <p className="text-cyan-dark text-xs mt-1 truncate">{person.jobTitle}</p>
+                        )}
                       </div>
+                    </div>
+                    <div className="space-y-2 mb-4">
+                      {getContactRows(person).map(({ key, icon: Icon, text }) => (
+                        <div key={key} className="flex items-center gap-3 rounded-xl bg-sapphire-900/40 border border-white/[0.04] px-3 py-2">
+                          <Icon className="w-4 h-4 text-cyan-neon flex-shrink-0" />
+                          <span className="text-xs text-sapphire-300 truncate">{text}</span>
+                        </div>
+                      ))}
                     </div>
                     <Link
                       href={`/messages?userId=${person.id}`}
@@ -443,8 +514,11 @@ export default function ConnectionsPage() {
                         <p className="text-sapphire-500 text-sm">{group.members?.length || 0} members</p>
                       </div>
                     </div>
-                    <button className="w-full py-2.5 rounded-xl text-sm font-semibold bg-sapphire-700/50 text-white hover:bg-sapphire-600/50 transition-colors border border-white/[0.06]">
-                      View Group
+                    <button
+                      onClick={() => { window.location.href = `/messages?groupId=${group.id}`; }}
+                      className="w-full py-2.5 rounded-xl text-sm font-semibold bg-sapphire-700/50 text-white hover:bg-sapphire-600/50 transition-colors border border-white/[0.06]"
+                    >
+                      Open In Messages
                     </button>
                   </div>
                 ))}
@@ -457,7 +531,7 @@ export default function ConnectionsPage() {
       {/* Create Group Modal */}
       {showGroupModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="glass-panel rounded-2xl p-8 w-full max-w-md glow-border">
+          <div className="glass-panel rounded-2xl p-8 w-full max-w-lg glow-border">
             <h3 className="text-xl font-bold text-white mb-4">Create a Group</h3>
             <input
               value={newGroupName}
@@ -465,9 +539,42 @@ export default function ConnectionsPage() {
               placeholder="Group name..."
               className="w-full p-4 rounded-xl glass-input text-white placeholder:text-sapphire-500 mb-4"
             />
+
+            <div className="mb-5">
+              <p className="text-sm text-sapphire-400 mb-3">Add people from your network only</p>
+              <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
+                {network.length === 0 ? (
+                  <div className="text-xs text-sapphire-500 py-2">No connections available yet.</div>
+                ) : (
+                  network.map((person) => {
+                    const memberUid = person.uid || person.id;
+                    const selected = selectedGroupMemberIds.includes(memberUid);
+                    return (
+                      <button
+                        key={memberUid}
+                        type="button"
+                        onClick={() => toggleGroupMember(memberUid)}
+                        className={`w-full flex items-center justify-between rounded-xl border px-3 py-2 text-left transition-colors ${
+                          selected ? 'border-cyan-neon/30 bg-cyan-neon/10' : 'border-white/[0.06] hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm text-white truncate">{person.fullName || person.name || 'User'}</div>
+                          <div className="text-xs text-sapphire-500 truncate">{person.organization || person.company || 'Vynco Member'}</div>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${selected ? 'border-cyan-neon bg-cyan-neon' : 'border-sapphire-600'}`}>
+                          {selected && <Check className="w-3 h-3 text-sapphire-900" />}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => { setShowGroupModal(false); setNewGroupName(''); }}
+                onClick={() => { setShowGroupModal(false); setNewGroupName(''); setSelectedGroupMemberIds([]); }}
                 className="px-5 py-2.5 text-sm font-medium rounded-xl text-sapphire-400 hover:text-white transition-colors"
               >
                 Cancel
@@ -483,6 +590,7 @@ export default function ConnectionsPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

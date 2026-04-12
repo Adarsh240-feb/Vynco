@@ -15,6 +15,8 @@ import {
   getDoc,
   onSnapshot,
   arrayUnion,
+  arrayRemove,
+  writeBatch,
 } from 'firebase/firestore';
 
 // ─── Posts ──────────────────────────────────────────────
@@ -88,15 +90,33 @@ export async function fetchUsers(limitCount = 20) {
 }
 
 export async function searchUsers(searchTerm) {
-  // Firestore doesn't support native full-text search, so we query by name prefix
+  // Username search is prefix-based and case-insensitive due to normalization.
+  const normalized = (searchTerm || '').trim().toLowerCase().replace(/^@/, '');
+  if (!normalized) return [];
+
   const q = query(
     collection(db, 'users'),
-    where('name', '>=', searchTerm),
-    where('name', '<=', searchTerm + '\uf8ff'),
+    where('username', '>=', normalized),
+    where('username', '<=', normalized + '\uf8ff'),
     limit(20)
   );
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function fetchUserByUsername(username) {
+  const normalized = (username || '').trim().toLowerCase();
+  if (!normalized) return null;
+
+  const q = query(
+    collection(db, 'users'),
+    where('username', '==', normalized),
+    limit(1)
+  );
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return null;
+  const docSnap = snapshot.docs[0];
+  return { id: docSnap.id, ...docSnap.data() };
 }
 
 // ─── Connection Requests ────────────────────────────────
@@ -129,6 +149,16 @@ export async function fetchPendingRequests(userId) {
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+export async function fetchSentPendingRequests(userId) {
+  const q = query(
+    collection(db, 'connection_requests'),
+    where('senderId', '==', userId),
+    where('status', '==', 'pending')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 export async function respondToRequest(req, status) {
   // If accepted, also create the connection document using raw data from `req`
   if (status === 'accepted') {
@@ -146,12 +176,17 @@ export async function respondToRequest(req, status) {
 
 // ─── Groups ─────────────────────────────────────────────
 
-export async function fetchGroups(userId) {
-  const q = query(
-    collection(db, 'groups'),
-    where('members', 'array-contains', userId)
-  );
-  const snapshot = await getDocs(q);
+export async function fetchGroups(userId, legacyMemberId = null) {
+  const memberIds = [userId];
+  if (legacyMemberId && legacyMemberId !== userId) {
+    memberIds.push(legacyMemberId);
+  }
+
+  const groupsQuery = memberIds.length > 1
+    ? query(collection(db, 'groups'), where('members', 'array-contains-any', memberIds))
+    : query(collection(db, 'groups'), where('members', 'array-contains', userId));
+
+  const snapshot = await getDocs(groupsQuery);
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
@@ -160,8 +195,75 @@ export async function createGroup({ name, createdBy, members = [] }) {
     name,
     createdBy,
     members: [createdBy, ...members],
+    lastMessage: null,
+    lastMessageTime: null,
     createdAt: serverTimestamp(),
   });
+}
+
+export function subscribeToGroupMessages(groupId, callback) {
+  const q = query(
+    collection(db, 'groups', groupId, 'messages'),
+    orderBy('createdAt', 'asc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
+
+export async function sendGroupMessage(groupId, { senderId, senderName, text }) {
+  const messageRef = await addDoc(collection(db, 'groups', groupId, 'messages'), {
+    senderId,
+    senderName,
+    text,
+    createdAt: serverTimestamp(),
+  });
+
+  await updateDoc(doc(db, 'groups', groupId), {
+    lastMessage: text,
+    lastMessageTime: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return messageRef.id;
+}
+
+export async function addMembersToGroup(groupId, memberIds = []) {
+  if (!memberIds.length) return;
+
+  await updateDoc(doc(db, 'groups', groupId), {
+    members: arrayUnion(...memberIds),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function removeMemberFromGroup(groupId, memberId) {
+  if (!groupId || !memberId) return;
+
+  await updateDoc(doc(db, 'groups', groupId), {
+    members: arrayRemove(memberId),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteGroup(groupId) {
+  if (!groupId) return;
+
+  const messagesRef = collection(db, 'groups', groupId, 'messages');
+  const messagesSnapshot = await getDocs(messagesRef);
+
+  // Firestore batches are limited; chunk deletes to stay within limits.
+  const docs = messagesSnapshot.docs;
+  const chunkSize = 400;
+  for (let i = 0; i < docs.length; i += chunkSize) {
+    const batch = writeBatch(db);
+    const chunk = docs.slice(i, i + chunkSize);
+    chunk.forEach((messageDoc) => batch.delete(messageDoc.ref));
+    await batch.commit();
+  }
+
+  await deleteDoc(doc(db, 'groups', groupId));
 }
 
 // ─── Connections ────────────────────────────────────────
@@ -301,12 +403,13 @@ export function formatTimestamp(timestamp) {
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
+  const timeText = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+  if (diffMins < 1) return timeText;
+  if (diffMins < 60) return `${diffMins}m ago • ${timeText}`;
+  if (diffHours < 24) return `${diffHours}h ago • ${timeText}`;
+  if (diffDays < 7) return `${diffDays}d ago • ${timeText}`;
+  return `${date.toLocaleDateString()} • ${timeText}`;
 }
 
 function normalizeUsername(username) {

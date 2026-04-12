@@ -7,7 +7,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { User, AtSign, Phone, Building2, ArrowLeft, Check, Zap } from 'lucide-react';
+import { User, AtSign, Phone, Building2, ArrowLeft, Check, Zap, Link2, Briefcase, FileText } from 'lucide-react';
 
 export default function SetupPage() {
   const { user } = useAuth();
@@ -18,6 +18,9 @@ export default function SetupPage() {
     username: '',
     phone: '',
     company: '',
+    jobTitle: '',
+    linkedinProfile: '',
+    bio: '',
   });
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -41,10 +44,15 @@ export default function SetupPage() {
         phone: formData.phone,
         organization: formData.company,
         company: formData.company,
+        jobTitle: formData.jobTitle,
+        linkedinProfile: formData.linkedinProfile,
+        bio: formData.bio,
         photoURL: user.photoURL || null,
-        bio: '',
         connectionsCount: 0,
         postsCount: 0,
+        phoneVisibilityMode: 'private',
+        phoneVisibilityAllowedIds: [],
+        phonePublic: false,
         isOnboarded: true,
         theme: 'sapphire',
         createdAt: serverTimestamp(),
@@ -58,8 +66,14 @@ export default function SetupPage() {
         phone: formData.phone,
         email: user.email,
         organization: formData.company,
+        jobTitle: formData.jobTitle,
+        linkedinProfile: formData.linkedinProfile,
+        bio: formData.bio,
         photoURL: user.photoURL || null,
         socialLinks: {},
+        phoneVisibilityMode: 'private',
+        phoneVisibilityAllowedIds: [],
+        phonePublic: false,
       });
 
       // Mark onboarding complete
@@ -78,7 +92,10 @@ export default function SetupPage() {
     }
   };
 
-  const isFormValid = formData.fullName.trim() && formData.username.trim();
+  const isFormValid =
+    formData.fullName.trim() &&
+    formData.username.trim() &&
+    formData.phone.trim();
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-16">
@@ -160,13 +177,24 @@ export default function SetupPage() {
             </div>
 
             <div>
-              <label className="text-sapphire-400 text-sm font-medium mb-2 block">Phone Number</label>
+              <label className="text-sapphire-400 text-sm font-medium mb-2 block">Phone Number <span className="text-red-400">*</span></label>
               <Input
                 type="tel"
                 placeholder="Enter your phone number"
                 icon={Phone}
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="text-sapphire-400 text-sm font-medium mb-2 block">Job Title</label>
+              <Input
+                placeholder="For example, Product Designer"
+                icon={Briefcase}
+                value={formData.jobTitle}
+                onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
               />
             </div>
 
@@ -177,6 +205,28 @@ export default function SetupPage() {
                 icon={Building2}
                 value={formData.company}
                 onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="text-sapphire-400 text-sm font-medium mb-2 block">LinkedIn Profile</label>
+              <Input
+                type="url"
+                placeholder="https://www.linkedin.com/in/your-profile"
+                icon={Link2}
+                value={formData.linkedinProfile}
+                onChange={(e) => setFormData({ ...formData, linkedinProfile: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="text-sapphire-400 text-sm font-medium mb-2 block">Bio</label>
+              <textarea
+                placeholder="Write a short bio so people know who you are and what you do"
+                rows={4}
+                value={formData.bio}
+                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                className="w-full rounded-2xl glass-input px-4 py-3 bg-sapphire-800/40 text-white placeholder:text-sapphire-700 resize-none"
               />
             </div>
 

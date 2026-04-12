@@ -6,12 +6,13 @@ import { signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { auth, db } from '@/lib/firebase';
-import { updateUserProfile } from '@/lib/firestore';
+import { fetchPopulatedConnections, updateUserProfile } from '@/lib/firestore';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import {
   User,
   Bell,
+  Check,
   Palette,
   LogOut,
   ChevronRight,
@@ -24,6 +25,8 @@ import {
   Phone,
   Building2,
   Sparkles,
+  Briefcase,
+  Link2,
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -37,10 +40,17 @@ export default function SettingsPage() {
     username: '',
     phone: '',
     company: '',
+    jobTitle: '',
+    linkedinProfile: '',
     bio: '',
     email: '',
   });
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [phoneVisibilityMode, setPhoneVisibilityMode] = useState('private');
+  const [phoneVisibilityAllowedIds, setPhoneVisibilityAllowedIds] = useState([]);
+  const [networkConnections, setNetworkConnections] = useState([]);
+  const [loadingConnections, setLoadingConnections] = useState(false);
+  const [showPhonePrivacyModal, setShowPhonePrivacyModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [passwordResetSending, setPasswordResetSending] = useState(false);
   const [status, setStatus] = useState({ type: 'idle', message: '' });
@@ -59,11 +69,37 @@ export default function SettingsPage() {
       username: profile?.username || '',
       phone: profile?.phone || '',
       company: profile?.company || profile?.organization || '',
+      jobTitle: profile?.jobTitle || '',
+      linkedinProfile: profile?.linkedinProfile || '',
       bio: profile?.bio || '',
       email: profile?.email || user?.email || '',
     });
     setNotificationsEnabled(profile?.notificationsEnabled ?? true);
+    setPhoneVisibilityMode(profile?.phoneVisibilityMode || (profile?.phonePublic ? 'connection-only' : 'private'));
+    setPhoneVisibilityAllowedIds(Array.isArray(profile?.phoneVisibilityAllowedIds) ? profile.phoneVisibilityAllowedIds : []);
   }, [profile, user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let active = true;
+    setLoadingConnections(true);
+
+    fetchPopulatedConnections(user.uid)
+      .then((connections) => {
+        if (active) setNetworkConnections(connections);
+      })
+      .catch((error) => {
+        console.error('Failed to load connections for privacy settings:', error);
+      })
+      .finally(() => {
+        if (active) setLoadingConnections(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   const scrollToSection = (ref) => {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -103,10 +139,15 @@ export default function SettingsPage() {
           phone: formData.phone.trim(),
           company: formData.company.trim(),
           organization: formData.company.trim(),
+          jobTitle: formData.jobTitle.trim(),
+          linkedinProfile: formData.linkedinProfile.trim(),
           bio: formData.bio.trim(),
           email: user.email || formData.email || '',
           photoURL: profile?.photoURL || user.photoURL || null,
           notificationsEnabled,
+          phoneVisibilityMode,
+          phoneVisibilityAllowedIds,
+          phonePublic: phoneVisibilityMode === 'connection-only',
         },
         previousUsername
       );
@@ -140,6 +181,54 @@ export default function SettingsPage() {
       setNotificationsEnabled(!nextValue);
       setStatus({ type: 'error', message: 'Could not update notification preferences.' });
     }
+  };
+
+  const persistPhoneVisibility = async (nextMode, nextAllowedIds = phoneVisibilityAllowedIds) => {
+    if (!user) return;
+
+    setPhoneVisibilityMode(nextMode);
+    if (nextMode !== 'custom') {
+      setPhoneVisibilityAllowedIds([]);
+    }
+
+    try {
+      await setDoc(
+        doc(db, 'users', user.uid),
+        {
+          phoneVisibilityMode: nextMode,
+          phoneVisibilityAllowedIds: nextMode === 'custom' ? nextAllowedIds : [],
+          phonePublic: nextMode === 'connection-only',
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (error) {
+      console.error('Failed to update phone privacy settings:', error);
+      setStatus({ type: 'error', message: 'Could not update phone privacy settings.' });
+    }
+  };
+
+  const handlePhonePrivacyModeChange = async (mode) => {
+    if (mode === 'custom') {
+      setPhoneVisibilityMode('custom');
+      setShowPhonePrivacyModal(true);
+      return;
+    }
+
+    await persistPhoneVisibility(mode, []);
+  };
+
+  const toggleAllowedConnection = (connectionId) => {
+    setPhoneVisibilityAllowedIds((current) =>
+      current.includes(connectionId)
+        ? current.filter((id) => id !== connectionId)
+        : [...current, connectionId]
+    );
+  };
+
+  const saveCustomPhonePrivacy = async () => {
+    await persistPhoneVisibility('custom', phoneVisibilityAllowedIds);
+    setShowPhonePrivacyModal(false);
   };
 
   const handlePasswordReset = async () => {
@@ -216,6 +305,7 @@ export default function SettingsPage() {
             <h2 className="text-xl font-bold text-white mb-1">{formData.fullName || 'User Name'}</h2>
             <p className="text-sapphire-500 text-sm mb-1">@{formData.username || 'username'}</p>
             <p className="text-sapphire-600 text-xs mb-5">{formData.company || 'Add your organization'}</p>
+            <p className="text-sapphire-500 text-xs mb-5">{formData.jobTitle || 'Add your job title'}</p>
 
             <div className="grid grid-cols-2 gap-4 pt-5 border-t border-white/[0.06]">
               <div className="text-center">
@@ -348,6 +438,28 @@ export default function SettingsPage() {
                 />
               </div>
 
+              <div className="grid sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="text-sapphire-400 text-sm font-medium mb-2 block">Job Title</label>
+                  <Input
+                    icon={Briefcase}
+                    value={formData.jobTitle}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, jobTitle: e.target.value }))}
+                    placeholder="Enter your job title"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sapphire-400 text-sm font-medium mb-2 block">LinkedIn Profile</label>
+                  <Input
+                    icon={Link2}
+                    value={formData.linkedinProfile}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, linkedinProfile: e.target.value }))}
+                    placeholder="https://linkedin.com/in/your-profile"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="text-sapphire-400 text-sm font-medium mb-2 block">Bio</label>
                 <textarea
@@ -439,6 +551,47 @@ export default function SettingsPage() {
               <Shield className="w-5 h-5 text-cyan-neon" />
             </div>
 
+            <div className="mb-6 rounded-2xl border border-white/[0.05] bg-sapphire-900/25 p-5">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-white">Phone Number Privacy</h4>
+                  <p className="text-xs text-sapphire-500 mt-1">Choose who can see your phone number on your card.</p>
+                </div>
+                <Phone className="w-5 h-5 text-cyan-dark" />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  { value: 'connection-only', label: 'Connection only', description: 'Visible to your connections' },
+                  { value: 'private', label: 'Private', description: 'Only you can see it' },
+                  { value: 'custom', label: 'Custom', description: 'Pick specific connections' },
+                ].map((option) => {
+                  const active = phoneVisibilityMode === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handlePhonePrivacyModeChange(option.value)}
+                      className={`rounded-2xl border p-4 text-left transition-all ${
+                        active ? 'border-cyan-neon/30 bg-cyan-neon/10' : 'border-white/[0.05] hover:bg-white/[0.02]'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold text-white">{option.label}</div>
+                      <div className="text-xs text-sapphire-500 mt-1">{option.description}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 text-xs text-sapphire-500">
+                {phoneVisibilityMode === 'custom'
+                  ? `${phoneVisibilityAllowedIds.length} connection${phoneVisibilityAllowedIds.length === 1 ? '' : 's'} selected`
+                  : phoneVisibilityMode === 'private'
+                    ? 'Phone is hidden from everyone else.'
+                    : 'Phone is visible to all of your connections.'}
+              </div>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <button
                 type="button"
@@ -464,8 +617,82 @@ export default function SettingsPage() {
                   Open card preview
                 </button>
               </div>
+
             </div>
           </div>
+
+            {showPhonePrivacyModal && phoneVisibilityMode === 'custom' && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+                <div className="glass-panel w-full max-w-2xl rounded-2xl p-6 sm:p-8">
+                  <div className="flex items-start justify-between gap-4 mb-5">
+                    <div>
+                      <h3 className="text-xl font-bold text-white">Select connections</h3>
+                      <p className="text-sapphire-400 text-sm mt-1">Choose the connections who can see your phone number.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPhonePrivacyModal(false)}
+                      className="text-sapphire-500 hover:text-white transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-1">
+                    {loadingConnections ? (
+                      <div className="text-sm text-sapphire-500 py-8 text-center">Loading connections...</div>
+                    ) : networkConnections.length === 0 ? (
+                      <div className="text-sm text-sapphire-500 py-8 text-center">You have no connections yet.</div>
+                    ) : (
+                      networkConnections.map((connection) => {
+                        const selected = phoneVisibilityAllowedIds.includes(connection.id);
+                        return (
+                          <button
+                            key={connection.id}
+                            type="button"
+                            onClick={() => toggleAllowedConnection(connection.id)}
+                            className={`w-full flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition-colors ${
+                              selected ? 'border-cyan-neon/30 bg-cyan-neon/10' : 'border-white/[0.05] hover:bg-white/[0.02]'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-white truncate">
+                                {connection.fullName || connection.name || 'Connection'}
+                              </div>
+                              <div className="text-xs text-sapphire-500 truncate">
+                                {connection.organization || connection.company || connection.jobTitle || 'Vynco Member'}
+                              </div>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 ${
+                              selected ? 'border-cyan-neon bg-cyan-neon' : 'border-sapphire-600'
+                            }`}>
+                              {selected && <Check className="w-3 h-3 text-sapphire-900" />}
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      type="button"
+                      onClick={() => setShowPhonePrivacyModal(false)}
+                      className="px-5 py-2.5 text-sm font-medium rounded-xl text-sapphire-400 hover:text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveCustomPhonePrivacy}
+                      className="px-6 py-2.5 text-sm font-semibold rounded-xl bg-gradient-to-r from-cyan-dark to-cyan-neon text-sapphire-900 shadow-[0_0_20px_rgba(0,229,255,0.2)] hover:shadow-[0_0_30px_rgba(0,229,255,0.4)] transition-all"
+                    >
+                      Save Selection
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
           <div>
             <h3 className="text-sm font-semibold text-sapphire-500 uppercase tracking-wider mb-4">Session</h3>
