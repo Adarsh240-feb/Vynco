@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import QRCode from 'react-qr-code';
 import { motion } from 'framer-motion';
@@ -8,7 +8,7 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Link as LinkIcon, Download, Copy, Check } from 'lucide-react';
 
-export default function Share() {
+function ShareContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const showBack = searchParams.get('from') === 'preview';
@@ -110,5 +110,17 @@ export default function Share() {
         )}
       </motion.div>
     </div>
+  );
+}
+
+export default function Share() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-sapphire-950 flex flex-col items-center justify-center p-6">
+        <div className="w-8 h-8 border-4 border-cyan-neon border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    }>
+      <ShareContent />
+    </Suspense>
   );
 }
