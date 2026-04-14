@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { fetchUserById } from '@/lib/firestore';
 import { motion } from 'framer-motion';
-import { UserPlus, QrCode, MapPin, Globe } from 'lucide-react';
+import { UserPlus, QrCode, MapPin, Globe, Mail } from 'lucide-react';
 
 export default function CardPreview() {
   const { userId } = useParams();
@@ -58,6 +58,33 @@ export default function CardPreview() {
   const handleAction = () => {
     router.push(`/verify?connectWith=${userId}`);
   };
+
+  const getSocials = () => {
+    const list = [];
+    const addIfValid = (key, url) => {
+      if (url && typeof url === 'string' && url.length > 3) {
+        list.push({ key: key.toLowerCase(), url });
+      }
+    };
+
+    if (profile.socialLinks && typeof profile.socialLinks === 'object') {
+      Object.entries(profile.socialLinks).forEach(([k, v]) => addIfValid(k, v));
+    }
+
+    addIfValid('linkedinProfile', profile.linkedinProfile || profile.linkedin || profile.linkedIn);
+    addIfValid('email', profile.email);
+
+    const unique = [];
+    const seenUrls = new Set();
+    list.forEach(s => {
+      if (!seenUrls.has(s.url)) {
+        unique.push(s);
+        seenUrls.add(s.url);
+      }
+    });
+    return unique;
+  };
+  const socialsList = getSocials();
 
   return (
     <div className="min-h-screen bg-sapphire-950 flex md:items-center justify-center p-4 sm:p-6 lg:p-8">
@@ -120,22 +147,47 @@ export default function CardPreview() {
             </p>
           )}
 
-          {/* Socials */}
-          {profile.socialLinks && Object.keys(profile.socialLinks).length > 0 && (
-            <div className="flex justify-center gap-3 mb-8">
-              {Object.entries(profile.socialLinks).map(([key, url]) => {
-                if (!url) return null;
-                const Icon = Globe;
+          {/* Socials & Contact */}
+          {socialsList.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 mb-8">
+              {socialsList.map(({ key, url }) => {
+                let finalUrl = url;
+                if (key.includes('email') && !url.startsWith('mailto:')) {
+                  finalUrl = `mailto:${url}`;
+                } else if (!url.startsWith('http') && !key.includes('email')) {
+                  finalUrl = `https://${url}`;
+                }
+
+                const isLinkedin = key.includes('linkedinProfile');
+                const isEmail = key.includes('email');
+
+                // Raw SVG for Linkedin to cleanly bypass lucide-react@1.8.0 limits
+                const LinkedinIcon = () => (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+                    <rect x="2" y="9" width="4" height="12"></rect>
+                    <circle cx="4" cy="4" r="2"></circle>
+                  </svg>
+                );
+
+                // Conditional brand color injection
+                let colorClass = "bg-sapphire-800/50 text-sapphire-300 border-transparent hover:bg-cyan-neon/10 hover:border-cyan-neon/30 hover:text-cyan-neon";
+                if (isLinkedin) {
+                  colorClass = "bg-[#0A66C2]/15 text-[#66b2ff] border-[#0A66C2]/30 hover:bg-[#0A66C2]/25 hover:border-[#0A66C2]/50 hover:text-white";
+                } else if (isEmail) {
+                  colorClass = "bg-white/10 text-white border-white/10 hover:bg-white/20 hover:border-white/30";
+                }
 
                 return (
                   <a
-                    key={key}
-                    href={url}
+                    key={url}
+                    href={finalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-full bg-sapphire-800/50 flex items-center justify-center hover:bg-cyan-neon/20 hover:text-cyan-neon transition-all text-sapphire-400"
+                    className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border transition-all shadow-sm font-medium text-sm ${colorClass}`}
                   >
-                    <Icon className="w-4 h-4" />
+                    {isLinkedin ? <LinkedinIcon /> : isEmail ? <Mail className="w-[18px] h-[18px]" /> : <Globe className="w-[18px] h-[18px]" />}
+                    {isLinkedin ? "LinkedIn" : isEmail ? "Email" : "LinkedIn"}
                   </a>
                 );
               })}
