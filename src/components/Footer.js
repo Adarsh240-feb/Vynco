@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Zap, Globe, MessageCircle, ExternalLink } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -15,16 +14,6 @@ export default function Footer() {
             <p className="text-sapphire-400 text-sm leading-relaxed max-w-xs">
               The future of professional networking. Share your digital business card instantly with a single scan.
             </p>
-          </div>
-
-          {/* Product */}
-          <div>
-            <h4 className="text-white font-semibold text-sm mb-3 sm:mb-4 uppercase tracking-wider">Product</h4>
-            <ul className="space-y-2.5 sm:space-y-3">
-              <li><Link href="/#features" className="text-sapphire-400 text-sm hover:text-cyan-neon transition-colors">Features</Link></li>
-              <li><Link href="/#how-it-works" className="text-sapphire-400 text-sm hover:text-cyan-neon transition-colors">How it Works</Link></li>
-              <li><Link href="/auth" className="text-sapphire-400 text-sm hover:text-cyan-neon transition-colors">Sign Up</Link></li>
-            </ul>
           </div>
 
           {/* Company */}
@@ -49,13 +38,8 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="border-t border-white/[0.06] pt-6 sm:pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="border-t border-white/[0.06] pt-6 sm:pt-8 flex items-center justify-center">
           <p className="text-sapphire-500 text-xs sm:text-sm">&copy; {new Date().getFullYear()} Vynco. All rights reserved.</p>
-          <div className="flex items-center gap-5">
-            <a href="#" className="text-sapphire-500 hover:text-cyan-neon transition-colors p-1"><MessageCircle className="w-5 h-5" /></a>
-            <a href="#" className="text-sapphire-500 hover:text-cyan-neon transition-colors p-1"><ExternalLink className="w-5 h-5" /></a>
-            <a href="#" className="text-sapphire-500 hover:text-cyan-neon transition-colors p-1"><Globe className="w-5 h-5" /></a>
-          </div>
         </div>
       </div>
     </footer>
