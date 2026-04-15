@@ -169,7 +169,7 @@ export default function VerifyClient() {
       await ensureUserExists({
         uid: user.uid,
         name: name,
-        phone: verifiedPhone || phone,
+        phoneNumber: verifiedPhone || phone,
         photoURL: user.photoURL
       });
 

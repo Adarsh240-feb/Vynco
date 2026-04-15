@@ -21,7 +21,7 @@ export async function fetchUserById(userId) {
   return { id: snap.id, ...snap.data() };
 }
 
-export async function ensureUserExists({ uid, name, phone, photoURL }) {
+export async function ensureUserExists({ uid, name, phoneNumber, photoURL }) {
   if (!uid) return;
   const userRef = doc(db, 'users', uid);
   const snap = await getDoc(userRef);
@@ -33,7 +33,7 @@ export async function ensureUserExists({ uid, name, phone, photoURL }) {
       uid,
       name: name || "Unknown User",
       fullName: name || "Unknown User",
-      phone: phone || null,
+      phoneNumber: phoneNumber || null,
       photoURL: photoURL || null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
