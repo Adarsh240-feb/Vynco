@@ -168,9 +168,8 @@ export default function VerifyClient() {
 
       await ensureUserExists({
         uid: user.uid,
-        name: name,
+        fullName: name,
         phoneNumber: verifiedPhone || phone,
-        photoURL: user.photoURL
       });
 
       if (connectWithId) {

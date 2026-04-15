@@ -18,10 +18,15 @@ export async function fetchUserById(userId) {
   const userRef = doc(db, 'users', userId);
   const snap = await getDoc(userRef);
   if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
+  const data = snap.data();
+  return {
+    id: snap.id,
+    ...data,
+    fullName: data.fullName || data.name || 'Unknown User',
+  };
 }
 
-export async function ensureUserExists({ uid, name, phoneNumber, photoURL }) {
+export async function ensureUserExists({ uid, fullName, name, phoneNumber }) {
   if (!uid) return;
   const userRef = doc(db, 'users', uid);
   const snap = await getDoc(userRef);
@@ -31,12 +36,9 @@ export async function ensureUserExists({ uid, name, phoneNumber, photoURL }) {
     const { setDoc } = await import('firebase/firestore');
     await setDoc(userRef, {
       uid,
-      name: name || "Unknown User",
-      fullName: name || "Unknown User",
+      fullName: fullName || name || "Unknown User",
       phoneNumber: phoneNumber || null,
-      photoURL: photoURL || null,
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
     });
   }
 }

@@ -116,18 +116,18 @@ export default function CardPreview() {
             {profile.photoURL || profile.profileImageUrl ? (
               <img
                 src={profile.photoURL || profile.profileImageUrl}
-                alt={profile.name || profile.fullName}
+                alt={profile.fullName || profile.name}
                 className="w-full h-full object-cover"
               />
             ) : (
               <span className="text-3xl text-sapphire-400 font-bold">
-                {(profile.name || profile.fullName || "U")[0].toUpperCase()}
+                {(profile.fullName || profile.name || "U")[0].toUpperCase()}
               </span>
             )}
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
-            {profile.name || profile.fullName || "Unknown User"}
+            {profile.fullName || profile.name || "Unknown User"}
           </h1>
 
           {(profile.designation || profile.title || profile.organization || profile.company) && (

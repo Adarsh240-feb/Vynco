@@ -69,7 +69,7 @@ export default function Preview() {
               <p className="text-center text-sapphire-500 py-4 text-sm font-medium">No recent connections yet.</p>
             ) : (
               connections.map((conn) => {
-                const displayName = conn.otherUser?.name || conn.otherUser?.fullName;
+                const displayName = conn.otherUser?.fullName || conn.otherUser?.name;
                 const displayImg = conn.otherUser?.photoURL || conn.otherUser?.profileImageUrl;
 
                 return (
