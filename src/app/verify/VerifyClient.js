@@ -8,6 +8,15 @@ import { auth } from '@/lib/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, updateProfile } from 'firebase/auth';
 import { createDirectConnection, ensureUserExists } from '@/lib/firestore';
 
+const RESEND_COOLDOWN_SECONDS = 300;
+const RETRY_COOLDOWN_SECONDS = 5;
+
+const formatCountdown = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+};
+
 export default function VerifyClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -20,6 +29,8 @@ export default function VerifyClient() {
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [retryCooldown, setRetryCooldown] = useState(0);
   const [error, setError] = useState('');
   const [confirmationResult, setConfirmationResult] = useState(null);
   const recaptchaVerifierRef = useRef(null);
@@ -36,6 +47,17 @@ export default function VerifyClient() {
       recaptchaVerifierRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (resendCooldown <= 0 && retryCooldown <= 0) return;
+
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+      setRetryCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [resendCooldown, retryCooldown]);
 
   const normalizePhoneNumber = (value) => {
     const trimmed = value.trim();
@@ -70,6 +92,26 @@ export default function VerifyClient() {
         return 'The code is incorrect. Please try again.';
       default:
         return 'Failed to send or verify the code. Check the phone number and try again.';
+    }
+  };
+
+  const getVerifyErrorMessage = (code) => {
+    switch (code) {
+      case 'auth/invalid-verification-code':
+        return 'The code is incorrect. Please try again.';
+      case 'auth/code-expired':
+        return 'The code expired. Please resend a new one.';
+      case 'auth/invalid-verification-id':
+      case 'auth/session-expired':
+        return 'Your verification session expired. Please resend a new code.';
+      case 'auth/missing-verification-code':
+        return 'Please enter the 6-digit OTP code.';
+      case 'auth/invalid-app-credential':
+        return 'Verification failed due to app credentials. Refresh and try again.';
+      case 'auth/too-many-requests':
+        return 'Too many attempts. Please wait before trying again.';
+      default:
+        return 'Failed to verify the code. Please try again.';
     }
   };
 
@@ -118,6 +160,7 @@ export default function VerifyClient() {
       setConfirmationResult(confirmation);
       setVerifiedPhone(formattedPhone);
       setStep('otp');
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
     } catch (err) {
       console.error(err);
       setError(getFirebaseErrorMessage(err));
@@ -132,6 +175,8 @@ export default function VerifyClient() {
   };
 
   const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+
     setResendLoading(true);
     setError('');
     setOtp('');
@@ -146,8 +191,21 @@ export default function VerifyClient() {
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
-    if (!otp.trim()) {
+
+    if (retryCooldown > 0) {
+      setError(`Please wait ${retryCooldown}s before trying again.`);
+      return;
+    }
+
+    const otpCode = otp.trim();
+
+    if (!otpCode) {
       setError('Please enter the OTP.');
+      return;
+    }
+
+    if (!/^\d{6}$/.test(otpCode)) {
+      setError('Enter a valid 6-digit OTP code.');
       return;
     }
 
@@ -159,7 +217,7 @@ export default function VerifyClient() {
     setLoading(true);
     setError('');
     try {
-      const result = await confirmationResult.confirm(otp);
+      const result = await confirmationResult.confirm(otpCode);
       const user = result.user;
 
       if (user.displayName !== name) {
@@ -179,14 +237,21 @@ export default function VerifyClient() {
         router.push('/share');
       }
     } catch (err) {
-      console.error(err);
-      if (err?.code === 'auth/invalid-verification-code') {
-        setError('The code is incorrect. Please try again.');
-      } else if (err?.code === 'auth/code-expired') {
-        setError('The code expired. Please resend a new one.');
-      } else {
-        setError('Failed to verify the code. Please try again.');
+      const code = err?.code;
+      if (
+        code !== 'auth/invalid-verification-code' &&
+        code !== 'auth/code-expired' &&
+        code !== 'auth/invalid-verification-id' &&
+        code !== 'auth/session-expired' &&
+        code !== 'auth/missing-verification-code'
+      ) {
+        console.error(err);
       }
+      setRetryCooldown(RETRY_COOLDOWN_SECONDS);
+      if (code === 'auth/invalid-verification-code') {
+        setOtp('');
+      }
+      setError(getVerifyErrorMessage(code));
     } finally {
       setLoading(false);
     }
@@ -267,7 +332,7 @@ export default function VerifyClient() {
               <input
                 type="text"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="000000"
                 maxLength={6}
                 className="w-full bg-sapphire-900/50 border border-sapphire-700 focus:border-cyan-neon focus:ring-1 focus:ring-cyan-neon text-white rounded-xl px-4 py-3 outline-none transition-all tracking-widest text-center text-lg font-bold"
@@ -276,18 +341,28 @@ export default function VerifyClient() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || retryCooldown > 0}
               className="w-full mt-6 py-3.5 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon hover:to-cyan-400 text-sapphire-950 font-bold rounded-xl shadow-[0_0_20px_rgba(0,229,255,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : connectWithId ? 'Verify & Connect' : 'Verify & Build Card'}
+              {loading
+                ? <Loader2 className="w-5 h-5 animate-spin" />
+                : retryCooldown > 0
+                  ? `Retry in ${retryCooldown}s`
+                  : connectWithId
+                    ? 'Verify & Connect'
+                    : 'Verify & Build Card'}
             </button>
             <button
               type="button"
               onClick={handleResendOtp}
-              disabled={resendLoading || loading}
+              disabled={resendLoading || loading || resendCooldown > 0}
               className="w-full py-3 px-4 text-sapphire-400 text-sm font-medium hover:text-white transition-all text-center disabled:opacity-60"
             >
-              {resendLoading ? 'Resending...' : "Didn't get a code? Resend"}
+              {resendLoading
+                ? 'Resending...'
+                : resendCooldown > 0
+                  ? `Resend in ${formatCountdown(resendCooldown)}`
+                  : "Didn't get a code? Resend"}
             </button>
             <button
               type="button"
