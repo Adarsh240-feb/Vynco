@@ -3,12 +3,12 @@ import {
   collection,
   query,
   getDocs,
-  addDoc,
   doc,
   where,
   serverTimestamp,
   getDoc,
   onSnapshot,
+  setDoc,
 } from 'firebase/firestore';
 
 // ─── Users / Discover ───────────────────────────────────
@@ -46,31 +46,57 @@ export async function ensureUserExists({ uid, fullName, name, phoneNumber }) {
 // ─── Direct Connections ──────────────────────────────────
 
 export async function createDirectConnection(user1Id, user2Id) {
+  if (!user1Id || !user2Id) return null;
+
+  const connectionId = `${user1Id}_${user2Id}`;
+  const connectionRef = doc(db, 'connections', connectionId);
+
+  const existing = await getDoc(connectionRef);
+  if (existing.exists()) return connectionId;
+
   // Prevent duplicates
   const existingQ = query(
     collection(db, 'connections'),
-    where('users', 'array-contains', user1Id)
+    where('userId', '==', user1Id)
   );
   const snap = await getDocs(existingQ);
-  const exists = snap.docs.some(doc => {
-    const arr = doc.data().users || [];
-    return arr.includes(user2Id);
+  const exists = snap.docs.some((d) => {
+    const data = d.data();
+    const legacyUsers = data.users || [];
+    return data.contactUserId === user2Id || legacyUsers.includes(user2Id);
   });
   
-  if (exists) return snap.docs.find(doc => doc.data().users.includes(user2Id)).id;
+  if (exists) {
+    return snap.docs.find((d) => {
+      const data = d.data();
+      const legacyUsers = data.users || [];
+      return data.contactUserId === user2Id || legacyUsers.includes(user2Id);
+    }).id;
+  }
 
-  const docRef = await addDoc(collection(db, 'connections'), {
-    users: [user1Id, user2Id],
+  const contactUser = await fetchUserById(user2Id);
+  await setDoc(connectionRef, {
+    id: connectionId,
+    userId: user1Id,
+    contactUserId: user2Id,
+    connectionMethod: 'QR Scan',
+    connectionNote: 'Added via QR scan',
+    contactName: contactUser?.fullName || contactUser?.name || 'Unknown User',
+    contactEmail: contactUser?.email || null,
+    contactPhone: contactUser?.phoneNumber || contactUser?.phone || null,
+    contactCompany: contactUser?.organization || contactUser?.company || null,
+    isNewConnection: true,
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
   
-  return docRef.id;
+  return connectionId;
 }
 
 export function subscribeToPopulatedConnections(userId, callback) {
   const q = query(
     collection(db, 'connections'),
-    where('users', 'array-contains', userId)
+    where('userId', '==', userId)
   );
 
   return onSnapshot(q, async (snap) => {
@@ -79,7 +105,7 @@ export function subscribeToPopulatedConnections(userId, callback) {
 
     for (const d of snap.docs) {
       const data = d.data();
-      const otherUserId = data.users?.find(id => id !== userId);
+      const otherUserId = data.contactUserId || data.users?.find((id) => id !== userId);
       let otherUser = null;
 
       if (otherUserId) {
