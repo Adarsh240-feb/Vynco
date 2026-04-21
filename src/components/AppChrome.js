@@ -11,7 +11,7 @@ export default function AppChrome({ children }) {
   return (
     <>
       <Navbar />
-      <main className="flex-1 pt-16">
+      <main className="flex-1 pt-14 sm:pt-16">
         {children}
       </main>
       {showFooter && <Footer />}

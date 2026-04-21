@@ -166,8 +166,6 @@ export default function CardPreview() {
   return (
     <div className="min-h-[100dvh] bg-sapphire-950 flex items-stretch sm:items-center justify-center p-0 sm:p-6">
       <div className="w-full min-h-[100dvh] sm:min-h-0 max-w-none sm:max-w-[430px] rounded-none sm:rounded-[2.5rem] bg-white p-5 sm:p-6 shadow-none sm:shadow-[0_38px_90px_rgba(5,7,20,0.55)] border-0 sm:border border-white/40">
-        <div className="h-3" />
-
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
