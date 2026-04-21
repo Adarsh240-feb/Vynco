@@ -41,6 +41,8 @@ export default function CardPreview() {
     );
   }
 
+  
+
   if (!profile) {
     return (
       <div className="min-h-screen bg-sapphire-950 flex items-center justify-center p-6 text-center">
