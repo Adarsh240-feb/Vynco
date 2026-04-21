@@ -258,14 +258,14 @@ export default function VerifyClient() {
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-md relative z-10 glass-panel p-8 rounded-[2rem] glow-border shadow-2xl mt-10 md:mt-0"
       >
-        <div className="w-16 h-16 bg-sapphire-800 rounded-2xl mx-auto flex items-center justify-center mb-6 shadow-inner border border-sapphire-700">
+        <div className="w-16 h-16 bg-white rounded-2xl mx-auto flex items-center justify-center mb-6 shadow-inner border border-sapphire-700">
           <Shield className="w-8 h-8 text-cyan-neon" />
         </div>
 
-        <h2 className="text-2xl font-bold text-white text-center mb-2">
+        <h2 className="text-2xl font-bold text-[#151826] text-center mb-2">
           {step === 'phone' ? 'Verify your Identity' : 'Enter OTP'}
         </h2>
-        <p className="text-sapphire-400 text-sm text-center mb-8">
+        <p className="text-sapphire-500 text-sm text-center mb-8">
           {step === 'phone'
             ? 'We need to verify your phone number to securely save this connection.'
             : `We sent a code to ${verifiedPhone || phone}`}
@@ -280,18 +280,18 @@ export default function VerifyClient() {
         {step === 'phone' ? (
           <form onSubmit={handleSendOtp} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-sapphire-300 mb-1.5 ml-1">Full Name</label>
+              <label className="block text-xs font-medium text-sapphire-500 mb-1.5 ml-1">Full Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
-                className="w-full bg-sapphire-900/50 border border-sapphire-700 focus:border-cyan-neon focus:ring-1 focus:ring-cyan-neon text-white rounded-xl px-4 py-3 outline-none transition-all"
+                className="w-full bg-white border border-sapphire-700 focus:border-cyan-neon focus:ring-1 focus:ring-cyan-neon text-[#13172a] rounded-xl px-4 py-3 outline-none transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-sapphire-300 mb-1.5 ml-1">Phone Number</label>
+              <label className="block text-xs font-medium text-sapphire-500 mb-1.5 ml-1">Phone Number</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Phone className="w-4 h-4 text-sapphire-400" />
@@ -301,7 +301,7 @@ export default function VerifyClient() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1 (555) 000-0000"
-                  className="w-full bg-sapphire-900/50 border border-sapphire-700 focus:border-cyan-neon focus:ring-1 focus:ring-cyan-neon text-white rounded-xl pl-10 pr-4 py-3 outline-none transition-all"
+                  className="w-full bg-white border border-sapphire-700 focus:border-cyan-neon focus:ring-1 focus:ring-cyan-neon text-[#13172a] rounded-xl pl-10 pr-4 py-3 outline-none transition-all"
                 />
               </div>
             </div>
@@ -309,7 +309,7 @@ export default function VerifyClient() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-6 py-3.5 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon hover:to-cyan-400 text-sapphire-950 font-bold rounded-xl shadow-[0_0_20px_rgba(0,229,255,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+              className="w-full mt-6 py-3.5 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon hover:brightness-105 text-white font-bold rounded-xl shadow-[0_10px_24px_rgba(91,76,230,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Code'}
             </button>
@@ -317,21 +317,21 @@ export default function VerifyClient() {
         ) : (
           <form onSubmit={handleVerifyOtp} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-sapphire-300 mb-1.5 ml-1">6-Digit Code</label>
+              <label className="block text-xs font-medium text-sapphire-500 mb-1.5 ml-1">6-Digit Code</label>
               <input
                 type="text"
                 value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="000000"
                 maxLength={6}
-                className="w-full bg-sapphire-900/50 border border-sapphire-700 focus:border-cyan-neon focus:ring-1 focus:ring-cyan-neon text-white rounded-xl px-4 py-3 outline-none transition-all tracking-widest text-center text-lg font-bold"
+                className="w-full bg-white border border-sapphire-700 focus:border-cyan-neon focus:ring-1 focus:ring-cyan-neon text-[#13172a] rounded-xl px-4 py-3 outline-none transition-all tracking-widest text-center text-lg font-bold"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading || retryCooldown > 0}
-              className="w-full mt-6 py-3.5 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon hover:to-cyan-400 text-sapphire-950 font-bold rounded-xl shadow-[0_0_20px_rgba(0,229,255,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+              className="w-full mt-6 py-3.5 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon hover:brightness-105 text-white font-bold rounded-xl shadow-[0_10px_24px_rgba(91,76,230,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
             >
               {loading
                 ? <Loader2 className="w-5 h-5 animate-spin" />
@@ -345,7 +345,7 @@ export default function VerifyClient() {
               type="button"
               onClick={handleResendOtp}
               disabled={resendLoading || loading || resendCooldown > 0}
-              className="w-full py-3 px-4 text-sapphire-400 text-sm font-medium hover:text-white transition-all text-center disabled:opacity-60"
+              className="w-full py-3 px-4 text-sapphire-500 text-sm font-medium hover:text-[#22263a] transition-all text-center disabled:opacity-60"
             >
               {resendLoading
                 ? 'Resending...'
@@ -361,7 +361,7 @@ export default function VerifyClient() {
                 setConfirmationResult(null);
                 setVerifiedPhone('');
               }}
-              className="w-full mt-2 py-3 px-4 text-sapphire-400 text-sm font-medium hover:text-white transition-all text-center"
+              className="w-full mt-2 py-3 px-4 text-sapphire-500 text-sm font-medium hover:text-[#22263a] transition-all text-center"
             >
               Change Phone Number
             </button>

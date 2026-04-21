@@ -81,12 +81,12 @@ function ShareContent() {
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-sm glass-panel p-8 rounded-[2rem] text-center glow-border"
       >
-        <h1 className="text-2xl font-bold text-white mb-2">Share Your QR</h1>
-        <p className="text-sapphire-400 text-sm mb-8">
+        <h1 className="text-2xl font-bold text-[#151826] mb-2">Share Your QR</h1>
+        <p className="text-sapphire-500 text-sm mb-8">
           Let others scan this code to instantly connect with you on Vynco.
         </p>
 
-        <div className="bg-white p-4 rounded-3xl inline-block mb-8 shadow-[0_0_40px_rgba(0,229,255,0.2)] border-4 border-cyan-neon/30">
+        <div className="bg-white p-4 rounded-3xl inline-block mb-8 shadow-[0_10px_36px_rgba(91,76,230,0.18)] border-4 border-cyan-neon/20">
           <QRCode 
             value={profileUrl}
             size={200}
@@ -96,13 +96,13 @@ function ShareContent() {
           />
         </div>
 
-        <div className="flex items-center gap-2 bg-sapphire-900/50 border border-sapphire-700 rounded-xl p-1 mb-6">
+        <div className="flex items-center gap-2 bg-sapphire-800 border border-sapphire-700 rounded-xl p-1 mb-6">
           <div className="flex-1 overflow-hidden px-3">
-            <p className="text-sapphire-300 text-xs truncate max-w-[200px]">{profileUrl}</p>
+            <p className="text-sapphire-500 text-xs truncate max-w-[200px]">{profileUrl}</p>
           </div>
           <button 
             onClick={copyToClipboard}
-            className="p-2.5 bg-sapphire-800 hover:bg-cyan-neon hover:text-sapphire-900 text-sapphire-300 rounded-lg transition-colors"
+            className="p-2.5 bg-white hover:bg-cyan-neon hover:text-white text-sapphire-500 rounded-lg transition-colors border border-sapphire-700"
           >
             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
           </button>
@@ -112,7 +112,7 @@ function ShareContent() {
           type="button"
           onClick={handleDirectShare}
           disabled={shareLoading}
-          className="w-full mb-6 py-3.5 px-4 bg-sapphire-800 hover:bg-sapphire-700 text-white font-medium rounded-xl border border-sapphire-600 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+          className="w-full mb-6 py-3.5 px-4 bg-white hover:bg-sapphire-800 text-[#1a1e2f] font-medium rounded-xl border border-sapphire-600 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
         >
           <LinkIcon className="w-4 h-4" />
           {shareLoading ? 'Opening share...' : 'Direct Share'}
@@ -122,13 +122,13 @@ function ShareContent() {
           <div className="flex gap-3 w-full">
             <button 
               onClick={() => router.push('/preview')}
-              className="flex-1 py-3.5 px-4 bg-transparent border border-sapphire-600 text-white font-medium rounded-xl hover:bg-white/5 transition-all"
+              className="flex-1 py-3.5 px-4 bg-white border border-sapphire-600 text-[#171b2d] font-medium rounded-xl hover:bg-sapphire-800 transition-all"
             >
               Back
             </button>
             <button 
               onClick={() => router.push('/download')}
-              className="flex-1 py-3.5 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon text-sapphire-950 font-bold rounded-xl flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,229,255,0.2)]"
+              className="flex-1 py-3.5 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-[0_10px_24px_rgba(91,76,230,0.24)]"
             >
                Get App
             </button>
@@ -137,7 +137,7 @@ function ShareContent() {
           <div className="flex w-full">
             <button 
               onClick={() => router.push('/download')}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon text-sapphire-950 font-bold rounded-xl flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,229,255,0.2)]"
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-[0_10px_24px_rgba(91,76,230,0.24)]"
             >
                <Download className="w-5 h-5" />
                Get Vynco App
