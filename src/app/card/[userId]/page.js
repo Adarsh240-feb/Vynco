@@ -33,10 +33,8 @@ export default function CardPreview() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-sapphire-950 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm rounded-[2.2rem] bg-white p-10 shadow-[0_35px_80px_rgba(6,10,30,0.45)] flex items-center justify-center">
-          <div className="w-8 h-8 border-4 border-[#5b4ce6] border-t-transparent rounded-full animate-spin"></div>
-        </div>
+      <div className="min-h-[100dvh] bg-sapphire-950 flex items-center justify-center p-6">
+        <div className="w-8 h-8 border-4 border-[#5b4ce6] border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -45,7 +43,7 @@ export default function CardPreview() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-sapphire-950 flex items-center justify-center p-6 text-center">
+      <div className="min-h-[100dvh] bg-sapphire-950 flex items-center justify-center p-6 text-center">
         <div className="w-full max-w-sm rounded-[2.2rem] bg-white p-8 shadow-[0_35px_80px_rgba(6,10,30,0.45)]">
           <p className="text-[#121326] font-medium mb-4">Profile not found.</p>
           <button
@@ -168,10 +166,8 @@ export default function CardPreview() {
   };
 
   return (
-    <div className="min-h-screen bg-sapphire-950 flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-[430px] rounded-[2.5rem] bg-white p-5 sm:p-6 shadow-[0_38px_90px_rgba(5,7,20,0.55)] border border-white/40">
-        <div className="h-3" />
-
+    <div className="min-h-[100dvh] bg-sapphire-950 flex items-stretch sm:items-center justify-center p-0 sm:p-6">
+      <div className="w-full min-h-[100dvh] sm:min-h-0 max-w-none sm:max-w-[430px] rounded-none sm:rounded-[2.5rem] bg-white p-5 sm:p-6 shadow-none sm:shadow-[0_38px_90px_rgba(5,7,20,0.55)] border-0 sm:border border-white/40">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -197,7 +193,7 @@ export default function CardPreview() {
             </div>
 
             <div className="min-w-0">
-              <h1 className="text-[34px] leading-none tracking-[-0.03em] text-[#131426] font-semibold truncate">{primaryName}</h1>
+              <h1 className="text-[28px] sm:text-[34px] leading-none tracking-[-0.03em] text-[#131426] font-semibold truncate">{primaryName}</h1>
               {(role || company) && (
                 <p className="text-[20px] leading-snug text-[#5f6170] font-medium mt-1 truncate">
                   {role || 'Professional'}
@@ -253,7 +249,7 @@ export default function CardPreview() {
           <div className="mt-6 space-y-3">
             <button
               onClick={handleSaveContact}
-              className="w-full rounded-2xl bg-[#5b4ce6] py-4 px-4 text-white font-semibold text-[22px] shadow-[0_9px_24px_rgba(91,76,230,0.35)] hover:bg-[#5143d4] transition flex items-center justify-center gap-2"
+              className="w-full rounded-2xl bg-[#5b4ce6] py-4 px-4 text-white font-semibold text-[16px] sm:text-[22px] shadow-[0_9px_24px_rgba(91,76,230,0.35)] hover:bg-[#5143d4] transition flex items-center justify-center gap-2"
             >
               <UserPlus className="w-5 h-5" />
               Save {firstName}&apos;s contact
@@ -261,7 +257,7 @@ export default function CardPreview() {
 
             <button
               onClick={handleCreateCard}
-              className="w-full rounded-2xl border border-[#d7d9e4] bg-white py-4 px-4 text-[#151826] font-semibold text-[22px] hover:bg-[#f8f8fd] transition flex items-center justify-center gap-2"
+              className="w-full rounded-2xl border border-[#d7d9e4] bg-white py-4 px-4 text-[#151826] font-semibold text-[16px] sm:text-[22px] hover:bg-[#f8f8fd] transition flex items-center justify-center gap-2"
             >
               Get my own card
               <ArrowRight className="w-5 h-5" />

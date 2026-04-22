@@ -1,6 +1,6 @@
 # ⚡ Vynco
 
-Your Network, Reinvented. Vynco transforms how professionals connect with instant QR digital business cards, smart networking, and real-time collaborations.
+Your Network, Reinvented. Vynco transforms how professionals connect with instant QR digital business cards, smart networking, and real-time collaboration.
 
 ## 🌟 Features
 

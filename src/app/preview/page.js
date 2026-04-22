@@ -43,7 +43,7 @@ export default function Preview() {
 
   if (!user || loading) {
     return (
-      <div className="min-h-screen bg-sapphire-950 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-sapphire-950 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-cyan-neon border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -62,33 +62,33 @@ export default function Preview() {
   const visibleConnections = connections.slice(0, 4);
 
   return (
-    <div className="min-h-screen bg-sapphire-950 flex flex-col items-center justify-center p-4 sm:p-6">
+    <div className="min-h-[100dvh] bg-sapphire-950 flex flex-col items-stretch sm:items-center justify-center p-0 sm:p-6">
       <motion.div 
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-[430px] bg-white border border-sapphire-700 rounded-[2.2rem] px-5 sm:px-6 py-6 shadow-[0_28px_70px_rgba(16,18,35,0.14)]"
+        className="w-full min-h-[100dvh] sm:min-h-0 max-w-none sm:max-w-[430px] bg-white border-0 sm:border border-sapphire-700 rounded-none sm:rounded-[2.2rem] px-5 sm:px-6 py-6 shadow-none sm:shadow-[0_28px_70px_rgba(16,18,35,0.14)]"
       >
         <div className="text-center">
           <p className="text-[16px] font-semibold text-cyan-neon">Your Vynco card is ready</p>
 
-          <div className="mt-5 mx-auto h-[120px] w-[130px] rounded-3xl bg-[#efedf7] border border-sapphire-700 flex items-center justify-center">
+          <div className="mt-4 mx-auto h-[120px] w-[130px] rounded-3xl bg-[#efedf7] border border-sapphire-700 flex items-center justify-center">
             <div className="bg-white p-2.5 rounded-xl shadow-sm">
               <QRCode value={profileUrl} size={74} fgColor="#5b4ce6" bgColor="#ffffff" />
             </div>
           </div>
 
-          <h1 className="mt-4 text-[33px] leading-none tracking-[-0.03em] font-semibold text-[#151826]">{ownerName}</h1>
-          <p className="mt-1 text-[14px] text-sapphire-500">{ownerTitle}</p>
+          <h1 className="mt-3 text-[28px] sm:text-[33px] leading-none tracking-[-0.03em] font-semibold text-[#151826]">{ownerName}</h1>
+          <p className="mt-1 text-[13px] sm:text-[14px] text-sapphire-500">{ownerTitle}</p>
 
           <button 
             onClick={() => router.push('/share?from=preview')}
-            className="w-full mt-6 py-4 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon hover:brightness-105 text-white font-bold rounded-2xl shadow-[0_10px_24px_rgba(91,76,230,0.3)] transition-all flex items-center justify-center gap-2 text-[15px] leading-none"
+            className="w-full mt-4 py-4 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon hover:brightness-105 text-white font-bold rounded-2xl shadow-[0_10px_24px_rgba(91,76,230,0.3)] transition-all flex items-center justify-center gap-2 text-[14px] leading-none"
           >
             <Share2 className="w-5 h-5" />
             Share my card now
           </button>
 
-          <div className="mt-6 pt-4 border-t border-sapphire-700 text-left">
+          <div className="mt-4 pt-4 border-t border-sapphire-700 text-left">
             <p className="text-sapphire-500 text-[14px] font-semibold uppercase tracking-[0.08em]">Connected Tonight</p>
 
             <div className="mt-5 space-y-4">
@@ -126,7 +126,6 @@ export default function Preview() {
             </div>
           </div>
 
-          <div className="h-24 sm:h-32" />
         </div>
       </motion.div>
     </div>

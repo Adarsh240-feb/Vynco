@@ -322,13 +322,13 @@ export default function VerifyClient() {
   };
 
   return (
-    <div className="min-h-screen bg-sapphire-950 flex items-center justify-center p-4 sm:p-6">
+    <div className="min-h-[100dvh] bg-sapphire-950 flex items-stretch sm:items-center justify-center p-0 sm:p-6">
       <div id="recaptcha-container" style={{ display: 'none' }}></div>
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-[430px] bg-white border border-sapphire-700 rounded-[2.2rem] px-5 sm:px-6 py-6 shadow-[0_28px_70px_rgba(16,18,35,0.14)]"
+        className="w-full min-h-[100dvh] sm:min-h-0 max-w-none sm:max-w-[430px] bg-white border-0 sm:border border-sapphire-700 rounded-none sm:rounded-[2.2rem] px-5 sm:px-6 py-6 shadow-none sm:shadow-[0_28px_70px_rgba(16,18,35,0.14)]"
       >
         {step === 'phone' && (
           <button
@@ -347,10 +347,10 @@ export default function VerifyClient() {
           </button>
         )}
 
-        <h2 className={`leading-none tracking-[-0.03em] font-semibold text-[#151826] ${step === 'phone' ? 'mt-4 text-[34px]' : 'mt-2 text-[36px] text-center'}`}>
+        <h2 className={`leading-none tracking-[-0.03em] font-semibold text-[#151826] ${step === 'phone' ? 'mt-3 text-[28px] sm:text-[34px]' : 'mt-2 text-[30px] sm:text-[36px] text-center'}`}>
           {step === 'phone' ? (isContactSaveFlow ? `Save ${possessiveName} contact` : 'Create your card') : 'Enter OTP'}
         </h2>
-        <p className={`text-sapphire-500 text-[15px] mt-2 mb-7 leading-relaxed ${step === 'otp' ? 'text-center' : ''}`}>
+        <p className={`text-sapphire-500 text-[15px] mt-2 mb-5 leading-relaxed ${step === 'otp' ? 'text-center' : ''}`}>
           {step === 'phone'
             ? isContactSaveFlow
               ? 'We will also create your own card. Takes 10 seconds.'
@@ -365,7 +365,7 @@ export default function VerifyClient() {
         )}
 
         {step === 'phone' ? (
-          <form onSubmit={handleSendOtp} className="space-y-5">
+          <form onSubmit={handleSendOtp} className="space-y-4">
             <div>
               <label className="block text-[16px] font-semibold text-[#44495d] mb-2">Your name</label>
               <input
@@ -384,7 +384,7 @@ export default function VerifyClient() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+91 98765 43210"
-                className="w-full bg-[#f2f1fb] border border-cyan-neon focus:border-cyan-neon focus:ring-2 focus:ring-cyan-neon/20 text-[#2e3160] rounded-2xl px-5 py-4 text-[30px] leading-none outline-none transition-all"
+                className="w-full bg-[#f2f1fb] border border-cyan-neon focus:border-cyan-neon focus:ring-2 focus:ring-cyan-neon/20 text-[#2e3160] rounded-2xl px-5 py-4 text-[20px] sm:text-[30px] leading-none outline-none transition-all"
               />
               <p className="text-sapphire-500 text-sm mt-2">We'll send a one-time code to verify</p>
             </div>
@@ -392,12 +392,12 @@ export default function VerifyClient() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-4 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon hover:brightness-105 text-white font-bold rounded-2xl shadow-[0_10px_24px_rgba(91,76,230,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-[32px] leading-none"
+              className="w-full mt-2 py-4 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon hover:brightness-105 text-white font-bold rounded-2xl shadow-[0_10px_24px_rgba(91,76,230,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-[16px] sm:text-[32px] leading-none"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send OTP ->'}
             </button>
 
-            <div className="pt-5 mt-1 border-t border-sapphire-700">
+            <div className="pt-4 mt-0 border-t border-sapphire-700">
               <p className="text-center text-sapphire-500 text-[15px] leading-relaxed">
                 {isContactSaveFlow
                   ? `You'll get ${possessiveName} contact + your own shareable QR card`
@@ -406,9 +406,9 @@ export default function VerifyClient() {
             </div>
           </form>
         ) : (
-          <form onSubmit={handleVerifyOtp} className="space-y-5">
+          <form onSubmit={handleVerifyOtp} className="space-y-4">
             <div>
-              <div className="flex items-center justify-center gap-2.5" onPaste={handleOtpPaste}>
+              <div className="flex items-center justify-center gap-1.5" onPaste={handleOtpPaste}>
                 {otpDigits.map((digit, index) => (
                   <input
                     key={index}
@@ -422,7 +422,7 @@ export default function VerifyClient() {
                     value={digit}
                     onChange={(e) => handleOtpDigitChange(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                    className={`h-14 w-12 sm:h-16 sm:w-14 text-center text-[36px] leading-none rounded-2xl border outline-none transition-all ${digit ? 'bg-[#f2f1fb] border-cyan-neon text-[#4f43be]' : 'bg-white border-sapphire-600 text-[#7f8499]'} focus:border-cyan-neon focus:ring-2 focus:ring-cyan-neon/20`}
+                    className={`h-14 w-12 sm:h-16 sm:w-14 text-center text-[24px] sm:text-[36px] leading-none rounded-2xl border outline-none transition-all ${digit ? 'bg-[#f2f1fb] border-cyan-neon text-[#4f43be]' : 'bg-white border-sapphire-600 text-[#7f8499]'} focus:border-cyan-neon focus:ring-2 focus:ring-cyan-neon/20`}
                   />
                 ))}
               </div>
@@ -444,7 +444,7 @@ export default function VerifyClient() {
             <button
               type="submit"
               disabled={loading || retryCooldown > 0}
-              className="w-full py-4 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon hover:brightness-105 text-white font-bold rounded-2xl shadow-[0_10px_24px_rgba(91,76,230,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-[40px] leading-none"
+              className="w-full py-4 px-4 bg-gradient-to-r from-cyan-dark to-cyan-neon hover:brightness-105 text-white font-bold rounded-2xl shadow-[0_10px_24px_rgba(91,76,230,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-[16px] sm:text-[40px] leading-none"
             >
               {loading
                 ? <Loader2 className="w-5 h-5 animate-spin" />
@@ -455,7 +455,7 @@ export default function VerifyClient() {
                     : 'Verify'}
             </button>
 
-            <div className="pt-5 mt-1 border-t border-sapphire-700">
+            <div className="pt-4 mt-0 border-t border-sapphire-700">
               <div className="rounded-2xl bg-[#eeedf7] py-5 px-4 text-center">
                 <p className="text-[15px] font-semibold text-[#4f4a8f]">After verifying you get</p>
                 <p className="text-[15px] text-[#4f4a8f] mt-1">

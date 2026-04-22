@@ -78,19 +78,19 @@ export default function DownloadPage() {
   const hasConnections = displayCount > 0;
 
   return (
-    <div className="min-h-screen bg-sapphire-950 flex items-center justify-center p-4 sm:p-6">
+    <div className="min-h-[100dvh] bg-sapphire-950 flex items-stretch sm:items-center justify-center p-0 sm:p-6">
 
       <motion.div 
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-[430px] bg-white border border-sapphire-700 rounded-[2.2rem] px-5 sm:px-6 py-6 shadow-[0_28px_70px_rgba(16,18,35,0.14)]"
+        className="w-full min-h-[100dvh] sm:min-h-0 max-w-none sm:max-w-[430px] bg-white border-0 sm:border border-sapphire-700 rounded-none sm:rounded-[2.2rem] px-5 sm:px-6 py-6 shadow-none sm:shadow-[0_28px_70px_rgba(16,18,35,0.14)]"
       >
         <div className="text-center">
-          <p className="text-[54px] leading-none font-semibold tracking-[-0.04em] text-[#151826]">{displayCount}</p>
+          <p className="text-[42px] sm:text-[54px] leading-none font-semibold tracking-[-0.04em] text-[#151826]">{displayCount}</p>
           <p className="mt-1 text-[16px] text-sapphire-500">{hasConnections ? 'people you met tonight' : 'no connections yet'}</p>
         </div>
 
-        <div className="mt-6 rounded-3xl bg-[#efedf7] border border-sapphire-700 p-5">
+        <div className="mt-4 rounded-3xl bg-[#efedf7] border border-sapphire-700 p-5">
           <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-sapphire-500">Tonight&apos;s Connections</p>
 
           <div className="mt-4 space-y-4">
@@ -115,7 +115,7 @@ export default function DownloadPage() {
           {moreCount > 0 && <p className="mt-4 text-[14px] text-sapphire-500">+ {moreCount} more</p>}
         </div>
 
-        <div className="mt-5 rounded-2xl border border-cyan-neon/30 bg-[#efedf7] p-4">
+        <div className="mt-4 rounded-2xl border border-cyan-neon/30 bg-[#efedf7] p-4">
           <p className="text-[18px] font-semibold text-[#3f3a7a]">Don&apos;t lose the context</p>
           <p className="text-[14px] text-[#4f4a8f] mt-1 leading-relaxed">
             Tag, add notes, and set follow-ups in the Vynco app before memory fades.
@@ -137,7 +137,6 @@ export default function DownloadPage() {
           iOS Beta Coming Soon
         </button>
 
-        <div className="h-20 sm:h-24" />
       </motion.div>
     </div>
   );

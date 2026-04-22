@@ -43,7 +43,7 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
   margin: 0;
-  padding: 0 0.25rem;
+  padding: 0;
   overflow-x: hidden;
   min-height: 100vh;
   min-height: 100dvh;

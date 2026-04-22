@@ -31,7 +31,7 @@ function ShareContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-sapphire-950 flex flex-col items-center justify-center p-6">
+      <div className="min-h-[100dvh] bg-sapphire-950 flex flex-col items-center justify-center p-6">
         <div className="w-8 h-8 border-4 border-cyan-neon border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -73,13 +73,13 @@ function ShareContent() {
   };
 
   return (
-    <div className="min-h-screen bg-sapphire-950 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 relative">
+    <div className="min-h-[100dvh] bg-sapphire-950 flex flex-col items-stretch sm:items-center justify-center p-0 sm:p-6 lg:p-8 relative">
       <div className="absolute top-1/4 left-1/4 w-[200px] h-[200px] bg-cyan-neon/[0.08] rounded-full blur-[100px] pointer-events-none" />
 
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-sm glass-panel p-8 rounded-[2rem] text-center glow-border"
+        className="w-full min-h-[100dvh] sm:min-h-0 max-w-none sm:max-w-sm glass-panel p-6 sm:p-8 rounded-none sm:rounded-[2rem] text-center glow-border"
       >
         <h1 className="text-2xl font-bold text-[#151826] mb-2">Share Your QR</h1>
         <p className="text-sapphire-500 text-sm mb-8">
@@ -152,7 +152,7 @@ function ShareContent() {
 export default function Share() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-sapphire-950 flex flex-col items-center justify-center p-6">
+      <div className="min-h-[100dvh] bg-sapphire-950 flex flex-col items-center justify-center p-6">
         <div className="w-8 h-8 border-4 border-cyan-neon border-t-transparent rounded-full animate-spin"></div>
       </div>
     }>
